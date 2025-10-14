@@ -29,7 +29,6 @@ setup(
         "openai>=1.0.0",
         "python-dotenv>=1.0.0",
         "pydantic>=2.0.0",
-        "tiktoken>=0.5.0",
     ],
 )
 

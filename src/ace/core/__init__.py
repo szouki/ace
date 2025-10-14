@@ -1,13 +1,13 @@
-"""Core ACE components: Generator, Reflector, Curator, and Playbook."""
+"""Core ACE components: Generator, Reflector, Curator, and Context."""
 
-from ace.core.playbook import Playbook, PlaybookBullet
+from ace.core.context import Context, ContextBullet
 from ace.core.generator import Generator
 from ace.core.reflector import Reflector
 from ace.core.curator import Curator
 
 __all__ = [
-    "Playbook",
-    "PlaybookBullet",
+    "Context",
+    "ContextBullet",
     "Generator",
     "Reflector",
     "Curator",
