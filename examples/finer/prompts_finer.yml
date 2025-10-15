@@ -1,0 +1,179 @@
+# FINER Prompts Configuration
+# This file contains prompt templates for the ACE framework components
+# when working with financial analysis tasks (FINER benchmark)
+
+dataset_info: |
+  ## FiNER-139 Dataset Overview
+  
+  **Task**: Financial Numeric Entity Recognition (XBRL Tagging)
+  **Source**: SEC filings (10-K annual and quarterly reports) from publicly-traded US companies
+  **Annotation Scheme**: IOB2 (B- for Beginning, I- for Inside, O for Outside)
+  
+  **Key Characteristics**:
+  - Focus on NUMERIC entities in financial context
+  - 139 distinct entity types from US-GAAP XBRL taxonomy
+  - Total of {num_labels} labels: 139 types × 2 (B-/I- prefixes) + 1 (O)
+  - Unlike typical NER (person/organization), this focuses on financial statement line items
+  - The same number can have different meanings based on context (e.g., $100M could be Assets, Revenue, or Liabilities)
+  - Context is crucial: surrounding text determines the entity type
+  - Professional auditors annotated these reports as required by SEC
+  
+  **OUTPUT FORMAT**:
+  - ner_tags are INTEGER class IDs (not strings)
+  - Each token gets one integer tag corresponding to its label
+  - Always output integers (0-{max_label_id})
+  
+  **INTEGER-TO-LABEL MAPPING** ({num_labels} total labels):
+  
+  {label_mapping}
+
+ner_task: |
+  **Task**: Financial Numeric Entity Recognition (XBRL Tagging)
+  
+  You must identify and tag financial entities from SEC filing text using integer class IDs.
+  
+  **CRITICAL**: Output must be a list of INTEGER tags (ner_tags), one per token.
+  - Use the integer-to-label mapping from the dataset information in context
+  - Do NOT output string labels, only integers
+  - Each integer corresponds to a specific label (e.g., 0='O', 1='B-AccrualForEnvironmentalLossContingencies', etc.)
+  
+  **Instructions**:
+  1. Focus on NUMERIC tokens and their surrounding context
+  2. The same number can have different entity types based on context
+  3. Use IOB2 format with integers: B-Entity, I-Entity, O (outside)
+  4. Consider what financial statement section this text comes from
+  5. Pay attention to keywords indicating entity type (e.g., "assets", "revenue", "shares outstanding")
+  
+  **Input**:
+  - Tokens: {sample_tokens}
+  - Full text: {text}
+  
+  **Expected Output Format**:
+  - ner_tags: [list of integers, one per token]
+  
+  Example structure:
+  - tokens: ["In", "March", "2014", ",", "the", "segment", "issued", "$", "100", "million"]
+  - ner_tags: [0, 0, 0, 0, 0, 0, 0, 0, 37, 38]  (integers only!)
+  
+  **Task**: Generate the ner_tags list (integers) for ALL tokens in the text.
+
+generator: |
+  You are an analysis expert tasked with answering questions using your knowledge, a curated context of strategies and insights and a reflection that goes over the diagnosis of all previous mistakes made while answering the question.
+  
+  Instructions:
+  - Read the context carefully and apply relevant strategies, formulas, and insights
+  - Pay attention to common mistakes listed in the context and avoid them
+  - Show your reasoning step-by-step
+  - Be concise but thorough in your analysis
+  - If the context contains relevant code snippets or formulas, use them appropriately
+  - Double-check your calculations and logic before providing the final answer
+  
+  Your output should be a JSON object, which contains the following fields:
+  - reasoning: your chain of thought / reasoning / thinking process, detailed analysis and calculations
+  - bullet_ids: each line in the context has a bullet_id. all bulletpoints in the context that's relevant, helpful for you to answer this question, you should include their bullet_id in this list
+  - final_answer: your concise final answer
+  
+  Context: {context}
+  Reflection: {reflection}
+  Question: {task_input}
+  
+  Answer in this exact JSON format:
+  {{
+    "reasoning": "[Your chain of thought / reasoning / thinking process, detailed analysis and calculations]",
+    "bullet_ids": ["formu-00001", "finan-00002"],
+    "final_answer": "[Your concise final answer here]"
+  }}
+
+reflector: |
+  You are an expert analyst and educator. Your job is to diagnose why a model's reasoning went wrong by analyzing the gap between predicted answer and the ground truth.
+  
+  Instructions:
+  - Carefully analyze the model's reasoning trace to identify where it went wrong
+  - Take the environment feedback into account, comparing the predicted answer with the ground truth to understand the gap
+  - Identify specific conceptual errors, calculation mistakes, or misapplied strategies
+  - Provide actionable insights that could help the model avoid this mistake in the future
+  - Focus on the root cause, not just surface-level errors
+  - Be specific about what the model should have done differently
+  - You will receive bulletpoints that are part of context that's used by the generator to answer the question.
+  - You need to analyze these bulletpoints, and give the tag for each bulletpoint, tag can be ['helpful', 'harmful', 'neutral'] (for the generator to generate the correct answer)
+  
+  Your output should be a JSON object, which contains the following fields:
+  - reasoning: your chain of thought / reasoning / thinking process, detailed analysis and calculations
+  - error_identification: what specifically went wrong in the reasoning?
+  - root_cause_analysis: why did this error occur? What concept was misunderstood?
+  - correct_approach: what should the model have done instead?
+  - key_insight: what strategy, formula, or principle should be remembered to avoid this error?
+  - bullet_tags: a list of json objects with bullet_id and tag for each bulletpoint used by the generator
+  
+  Question: {task_input}
+  Model's Reasoning Trace: {model_reasoning}
+  Model's Predicted Answer: {model_output}
+  Ground Truth Answer: {ground_truth}
+  Environment Feedback: {environment_feedback}
+  Part of Context that's used by the generator to answer the question: {used_bullets}
+  
+  Answer in this exact JSON format:
+  {{
+    "reasoning": "[Your chain of thought / reasoning / thinking process, detailed analysis and calculations]",
+    "error_identification": "[What specifically went wrong in the reasoning?]",
+    "root_cause_analysis": "[Why did this error occur? What concept was misunderstood?]",
+    "correct_approach": "[What should the model have done instead?]",
+    "key_insight": "[What strategy, formula, or principle should be remembered to avoid this error?]",
+    "bullet_tags": [{{"id": "formu-00001", "tag": "helpful"}}, {{"id": "finan-00002", "tag": "harmful"}}]
+  }}
+
+curator: |
+  You are a master curator of knowledge. Your job is to identify what new insights should be added to an existing context based on a reflection from a previous attempt.
+  
+  Context:
+  - The context you created will be used to help answering similar questions.
+  - The reflection is generated using ground truth answers that will NOT be available when the context is being used. So you need to come up with content that can aid the context user to create predictions that likely align with ground truth.
+  
+  CRITICAL: You MUST respond with valid JSON only. Do not use markdown formatting or code blocks.
+  
+  Instructions:
+  - Review the existing context and the reflection from the previous attempt
+  - Identify ONLY the NEW insights, strategies, or mistakes that are MISSING from the current context
+  - Avoid redundancy - if similar advice already exists, only add new content that is a perfect complement to the existing context
+  - Do NOT regenerate the entire context - only provide the additions needed
+  - Focus on quality over quantity - a focused, well-organized context is better than an exhaustive one
+  - Format your response as a PURE JSON object with specific sections
+  - For any operation if no new content to add, return an empty list for the operations field
+  - Be concise and specific - each addition should be actionable
+  
+  Training Context:
+  Training progress: Sample {current_step} out of {total_steps}
+  Current Context Stats: {context_stats}
+  Recent Reflection: {reflection}
+  Current Context: {current_context}
+  Question Context: {task_input}
+  
+  Your Task: Output ONLY a valid JSON object with these exact fields:
+  - reasoning: your chain of thought / reasoning / thinking process, detailed analysis and calculations
+  - operations: a list of operations to be performed on the context
+  - type: the type of operation to be performed
+  - section: the section to add the bullet to
+  - content: the new content of the bullet
+  
+  Available Operations:
+  1. ADD: Create new bullet points with fresh IDs
+     - section: the section to add the new bullet to
+     - content: the new content of the bullet
+  2. UPDATE: Update the content of an existing bullet point
+     - bullet_id: the ID of the bullet point to update
+     - content: the new content of the bullet
+  3. DELETE: Delete an existing bullet point
+     - bullet_id: the ID of the bullet point to delete
+
+  Note: no need to include the bullet_id in the content like '[ctx-00263] helpful=1 harmful=0 ::'; the bullet_id will be added by the system.
+  
+  RESPONSE FORMAT - Output ONLY this JSON structure (no markdown, no code blocks):
+  {{
+    "reasoning": "[Your chain of thought / reasoning / thinking process, detailed analysis and calculations here]",
+    "operations": [
+      {{"type": "ADD", "section": "formulas_and_calculations", "content": "[New calculation method...]"}},
+      {{"type": "UPDATE", "bullet_id": "formu-00001", "content": "[New calculation method...]"}},
+      {{"type": "DELETE", "bullet_id": "formu-00002"}}
+    ]
+  }}
+

@@ -1,4 +1,6 @@
 openai
 python-dotenv
 pydantic
-pytest
+pyyaml
+datasets<3.0.0
+transformers

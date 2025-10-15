@@ -22,7 +22,7 @@ class OpenAIClient(BaseLLM):
         api_key: Optional[str] = None,
         model: str = "gpt-5",
         temperature: float = 1.0,
-        max_tokens: int = 4096,
+        max_tokens: Optional[int] = None,
         organization: Optional[str] = None,
     ):
         """
@@ -32,7 +32,7 @@ class OpenAIClient(BaseLLM):
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
             model: Model name (e.g., "gpt-5", "gpt-5-mini")
             temperature: Default sampling temperature (GPT-5 only supports 1.0)
-            max_tokens: Default max tokens to generate
+            max_tokens: Default max tokens to generate (None for no limit)
             organization: Optional OpenAI organization ID
         """
         # Get API key but don't store it as an instance variable for security
@@ -84,17 +84,19 @@ class OpenAIClient(BaseLLM):
         prompt: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        schema: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
         Generate structured JSON output from a prompt.
         
-        Uses OpenAI's JSON mode to ensure valid JSON output.
+        Uses OpenAI's JSON mode (or structured outputs if schema provided) to ensure valid JSON output.
         
         Args:
             prompt: The input prompt (should request JSON output)
             temperature: Sampling temperature (overrides default, GPT-5 only supports 1.0)
             max_tokens: Maximum tokens to generate (overrides default)
+            schema: Optional JSON schema for structured outputs. If provided, OpenAI will enforce this schema.
             **kwargs: Additional OpenAI API parameters
             
         Returns:
@@ -109,16 +111,32 @@ class OpenAIClient(BaseLLM):
         api_params = {
             "model": self.model,
             "messages": messages,
-            "max_completion_tokens": max_tokens or self.default_max_tokens,
-            "response_format": {"type": "json_object"},
         }
+        
+        # Only add max_completion_tokens if specified
+        max_tok = max_tokens if max_tokens is not None else self.default_max_tokens
+        if max_tok is not None:
+            api_params["max_completion_tokens"] = max_tok
+        
+        # Use structured outputs if schema is provided, otherwise use JSON mode
+        if schema:
+            api_params["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "strict": True,
+                    "schema": schema
+                }
+            }
+        else:
+            api_params["response_format"] = {"type": "json_object"}
         
         # Only include temperature if it's 1.0 (GPT-5 only supports default temperature)
         temp = temperature if temperature is not None else self.default_temperature
         if temp == 1.0:
             api_params["temperature"] = temp
         
-        # Use OpenAI's JSON mode
+        # Call OpenAI API
         response = self.client.chat.completions.create(**api_params, **kwargs)
         
         content = response.choices[0].message.content
@@ -151,8 +169,12 @@ class OpenAIClient(BaseLLM):
         api_params = {
             "model": self.model,
             "messages": messages,
-            "max_completion_tokens": max_tokens or self.default_max_tokens,
         }
+        
+        # Only add max_completion_tokens if specified
+        max_tok = max_tokens if max_tokens is not None else self.default_max_tokens
+        if max_tok is not None:
+            api_params["max_completion_tokens"] = max_tok
         
         # Only include temperature if it's 1.0 (GPT-5 only supports default temperature)
         temp = temperature if temperature is not None else self.default_temperature
