@@ -57,7 +57,7 @@ OpenAI API key (set in environment or .env file)
 
 ## Development Notes
 
-This project was developed using Cursor with Claude 4.5 Sonnet. While AI assistance accelerated development, the generated code required careful human review and multiple corrections. 
+This project was developed using Cursor with Claude 4.5 Sonnet. The generated code required careful human review and multiple corrections. 
 
 Examples of issues that were identified and fixed:
 
@@ -69,8 +69,7 @@ Examples of issues that were identified and fixed:
 * Unnecessary limits and truncation logic added without justification which caused problems in experimentation.
 * Incorrect license specification in the documentation, even though the license doc is in the root path of the project.
 
-These issues underscore the importance of human oversight when working with AI-generated code, even with state-of-the-art models.
-
+These issues underscore the importance of human oversight when working with AI-generated code, even with state-of-the-art models. It is also questionable how much more productive I was with the help of cursor, as compared to me writing the codebase with small to little AI involvement, considering how much code I had to re-write. In my opinion, it was probably 25-50% faster vs coding without any llm help, which is still a decent improvement.
 ## Citation
 
 This implementation is based on the paper:
