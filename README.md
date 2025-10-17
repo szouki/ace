@@ -2,6 +2,8 @@
 
 Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models
 
+> **📦 [View Source Code on GitHub](https://github.com/szouki/ace)**
+
 ## Overview
 
 ACE is a framework for building and evolving contexts that enable self-improving language models. It provides a structured approach to context engineering through three core components: Generator, Reflector, and Curator.
