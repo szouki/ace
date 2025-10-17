@@ -15,7 +15,7 @@ from datasets import load_dataset
 # Add project root directory to path to import ace
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from src.ace import Context, Generator, Reflector, Curator
+from src.ace import Context, Generator, Reflector, Curator, OpenAIEmbedder
 from src.ace.llm import OpenAIClient
 from src.ace.utils import PromptManager
 from finer_helper import (
@@ -50,6 +50,14 @@ llm = OpenAIClient(
     # temperature=0.7,
 )
 print(f"✓ LLM client initialized: {llm}")
+print()
+
+# Initialize embedder for grow-and-refine
+print("Initializing OpenAI embedder for semantic de-duplication...")
+embedder = OpenAIEmbedder(
+    model="text-embedding-3-small",  # Efficient and cost-effective
+)
+print(f"✓ Embedder initialized: {embedder}")
 print()
 
 # Load FINER-139 dataset
@@ -110,15 +118,25 @@ dataset_info = dataset_info_template.format(
     label_mapping=label_mapping_str
 ) if dataset_info_template else ""
 
-# Initialize Context with FINER-specific sections
+# Initialize Context with FINER-specific sections and grow-and-refine
 print("Creating context with financial NER sections...")
+print("Grow-and-Refine Configuration:")
+print("  - Max bullets: 50 (to demonstrate refinement)")
+print("  - Refinement mode: lazy (refine only when max exceeded)")
+print("  - Similarity threshold: 0.85 (for de-duplication)")
+print()
+
 context = Context(
     sections=[
         "dataset_information",
         "entity_types_and_definitions",
         "extraction_strategies",
         "common_mistakes",
-    ]
+    ],
+    max_bullets=15,  # Limit total bullets to demonstrate grow-and-refine
+    embedder=embedder,  # Enable semantic de-duplication
+    similarity_threshold=0.75,  # Threshold for duplicate detection
+    refinement_mode="lazy"  # Refine only when max_bullets exceeded
 )
 
 # Add dataset information as initial context
@@ -288,7 +306,8 @@ Entities extracted:
                 "task_input": f"Financial Numeric Entity Recognition - Training example {step}/{num_train_steps}",
                 "current_step": step,
                 "total_steps": num_train_steps
-            }
+            },
+            trigger_refinement=True  # Explicitly trigger refinement to see stats
         )
         
         print(f"\nOperations: {len(curation['operations'])} new insights added")
@@ -296,6 +315,19 @@ Entities extracted:
             print(f"  {i}. [{op['section']}] {op['content'][:80]}...")
         if len(curation['operations']) > 2:
             print(f"  ... and {len(curation['operations']) - 2} more")
+        
+        # Show grow-and-refine stats if available
+        if 'refinement_stats' in curation:
+            stats = curation['refinement_stats']
+            if stats['total_removed'] > 0:
+                print(f"\n🔄 Grow-and-Refine Applied:")
+                print(f"  - Deduplicated: {stats['deduplicated']} bullets (semantic similarity)")
+                print(f"  - Pruned: {stats['pruned']} bullets (lowest value)")
+                print(f"  - Total removed: {stats['total_removed']} bullets")
+        
+        # Show current context size
+        current_stats = context.get_stats()
+        print(f"  - Current total bullets: {current_stats['total_bullets']}")
         print()
         
     except Exception as e:
@@ -339,15 +371,31 @@ print("=" * 80)
 print()
 
 stats = context.get_stats()
-print(f"Total bullets: {stats['total_bullets']}")
+print(f"Total bullets: {stats['total_bullets']} (max: {context.max_bullets})")
+print(f"Refinement mode: {context.refinement_mode}")
+print(f"Similarity threshold: {context.similarity_threshold}")
+print()
+print("Bullets per section:")
 for section, section_stats in stats['sections'].items():
     print(f"  {section}: {section_stats['count']} bullets")
+    if section_stats['count'] > 0:
+        print(f"    - Helpful tags: {section_stats['helpful']}")
+        print(f"    - Harmful tags: {section_stats['harmful']}")
+        print(f"    - Neutral tags: {section_stats['neutral']}")
 print()
 
 # Save context
 context_file = "finer_context.json"
 context.save(context_file)
 print(f"✓ Context saved to {context_file}")
+print(f"  Note: Embeddings are saved as arrays and can be restored when loading")
+print()
+
+# Demonstrate loading context with embedder
+print("Demonstrating context loading with embedder...")
+loaded_context = Context.load(context_file, embedder=embedder)
+print(f"✓ Context loaded successfully with {loaded_context.get_stats()['total_bullets']} bullets")
+print(f"  Embedder attached: {loaded_context.embedder is not None}")
 print()
 
 # Test on a new example
@@ -403,6 +451,15 @@ print()
 print("Summary:")
 print(f"- Processed {num_train_steps} training examples")
 print(f"- Built context with {stats['total_bullets']} insights")
+print(f"- Grow-and-Refine kept context within {context.max_bullets} bullets limit")
+print(f"- Semantic de-duplication prevented redundant insights")
 print(f"- Context can now be reused for financial NER tasks!")
+print()
+print("Key Features Demonstrated:")
+print("  ✓ OpenAI embeddings for semantic similarity")
+print("  ✓ Automatic de-duplication based on semantic threshold")
+print("  ✓ Lazy refinement mode (refines when max_bullets exceeded)")
+print("  ✓ Bullet value scoring (helpful - harmful)")
+print("  ✓ Context persistence with embeddings")
 print()
 

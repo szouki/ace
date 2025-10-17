@@ -10,6 +10,7 @@ from ace.core.context import Context, ContextBullet
 from ace.core.generator import Generator
 from ace.core.reflector import Reflector
 from ace.core.curator import Curator
+from ace.embeddings import BaseEmbedder, OpenAIEmbedder
 
 __all__ = [
     "Context",
@@ -17,5 +18,7 @@ __all__ = [
     "Generator",
     "Reflector",
     "Curator",
+    "BaseEmbedder",
+    "OpenAIEmbedder",
 ]
 

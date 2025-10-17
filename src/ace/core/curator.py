@@ -43,6 +43,7 @@ class Curator:
         context: Context,
         prompt_variables: Optional[Dict[str, Any]] = None,
         temperature: Optional[float] = None,
+        trigger_refinement: bool = False,
     ) -> Dict[str, Any]:
         """
         Curate new insights to add to the context.
@@ -52,12 +53,15 @@ class Curator:
             prompt_variables: Dictionary of variables to pass to the prompt template.
                              The current_context and context_stats will automatically be added.
             temperature: Optional temperature override
+            trigger_refinement: If True, manually trigger refinement after adding all bullets
+                              (useful when adding multiple bullets at once and context uses lazy mode)
             
         Returns:
             Dictionary with:
                 - reasoning: Curation reasoning
                 - operations: List of operations (ADD, UPDATE, DELETE)
                   Each operation has: {"type": str, "section": str (for ADD), "content": str, "bullet_id": str (for UPDATE/DELETE)}
+                - refinement_stats: (optional) Statistics from refinement if triggered
         """
         # Get context stats
         context_stats = context.get_stats()
@@ -86,10 +90,16 @@ class Curator:
                 # Skip if section or content is None/null
                 if section and content:
                     try:
-                        context.add_bullet(section=section, content=content)
+                        # Skip auto-refinement during batch add
+                        context.add_bullet(section=section, content=content, skip_refinement=True)
                     except ValueError as e:
-                        # Section doesn't exist or max bullets reached
+                        # Section doesn't exist
                         print(f"Warning: Could not add bullet to section '{section}': {e}")
+        
+        # Optionally trigger refinement after all bullets are added
+        if trigger_refinement or (operations and context.refinement_mode == "proactive"):
+            refinement_stats = context.refine()
+            response["refinement_stats"] = refinement_stats
         
         return response
 

@@ -4,3 +4,4 @@ pydantic
 pyyaml
 datasets<3.0.0
 transformers
+numpy
